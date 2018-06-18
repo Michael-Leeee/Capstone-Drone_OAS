@@ -105,10 +105,10 @@ void loop() {
       update_color(ring.Color(127, 90, 0),i, 50);
     }
     else if (sensor_reading>=400 && sensor_reading<500) {  //Yellow-Green: 4-5m
-      update_color(ring.Color(60, 90, 0),i, 50);
+      update_color(ring.Color(0, 255, 0),i, 50);
     }
     else if (sensor_reading>=500 && sensor_reading<766) { //765 is the maximum number you can get
-      update_color(ring.Color(0, 255, 0),i, 50);  //Green: 5-7m
+      update_color(ring.Color(0, 0, 200),i, 50);  //Green: 5-7m
     }
   }
   Serial.println("================================");
