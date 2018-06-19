@@ -11,6 +11,7 @@
 //#define I2C_SLOWMODE 1         //If you do not define the mode it will run at 100kHz with this define set to 1 it will run at 25kHz
 #include <SoftI2CMaster.h>     //You will need to install this library
 
+
 /*
  * Maxbotix Sensor Address Allocation.
  * Sensor will only accept EVEN address values. Invalid Address Values: 0,80,164,170, Any odd numbers 
@@ -43,11 +44,13 @@ Adafruit_NeoPixel ring = Adafruit_NeoPixel(16, PIN, NEO_GRB + NEO_KHZ800);
 
 char* sensor_list[] = {"RearLeft","FrontLeft","FrontRight","RearRight"};
 int address_list[] = {202,200,204,206};
+
 unsigned long current_time;
-int sensor1_readings[5]; // Create a List of Readings to get the median readings
-int sensor2_readings[5];
-int sensor3_readings[5];
-int sensor4_readings[5];
+ // Create a List of Readings to get the median readings
+unsigned int s0_readings[5] = {0,0,0,0,0};
+unsigned int s1_readings[5] = {0,0,0,0,0};
+unsigned int s2_readings[5] = {0,0,0,0,0};
+unsigned int s3_readings[5] = {0,0,0,0,0};
 
 void setup() {
   // Initialize both serial and I2C bus
@@ -61,6 +64,7 @@ void setup() {
   ring.begin();
   ring.show(); // Initialize all pixels to 'off'
   /*
+   * FOR TESTING OF COLOR USE PURPOSES
   for (int i=0;i<4;i++) {
     update_color(ring.Color(127, 127, 127),i, 50); delay(1000);     
     update_color(ring.Color(255, 0, 0),i, 50); delay(1000);  //0-2m     
@@ -75,42 +79,81 @@ void setup() {
 
 void loop() {
   // Read all 4 sensors and return readings
-  delay(600);
+  //delay(1000);
+
+  unsigned long loop_timer; // Measure time taken for 1 cycle to occur. This will affect the response speed of the drone to object detection
+  loop_timer = micros();
   for (int i=0; i<4; i++) { 
-    boolean error =0;
+    boolean error =0; 
     int sensor_reading;
     current_time = micros();
     error = start_sensor(address_list[i]);
-    Serial.print("Time taken for start_sensor is ");
-    Serial.println(get_time_taken(current_time));
+    //Serial.print("Time taken for start_sensor is ");
+    //Serial.print(get_time_taken(current_time));Serial.println("us");
     if (!error) {
       //delay(100); // Delay here is important for the reading to be received
       current_time = micros();
-      sensor_reading = read_sensor(address_list[i]);
+      sensor_reading = read_sensor(address_list[i]);  
       Serial.print(sensor_list[i]);Serial.print(" Sensor Reading is ");
       Serial.print(sensor_reading);Serial.println("cm");
       Serial.print("Time taken for sensor reading is ");
-      Serial.print(get_time_taken(current_time));Serial.println("ms");
+      Serial.print(get_time_taken(current_time));Serial.println("us");
     }
-    if (sensor_reading==0) {  //Error Reading Color is White
+    unsigned int median;
+    if (i == 0) {
+      s0_readings[0] = s0_readings[1]; // Shifting values forward in index position
+      s0_readings[1] = s0_readings[2];
+      s0_readings[2] = s0_readings[3];
+      s0_readings[3] = s0_readings[4];
+      s0_readings[4] = sensor_reading;
+      median = median5(s0_readings[0],s0_readings[1],s0_readings[2],s0_readings[3],s0_readings[4]);
+    }
+    else if (i == 1) {
+      s1_readings[0] = s1_readings[1]; 
+      s1_readings[1] = s1_readings[2];
+      s1_readings[2] = s1_readings[3];
+      s1_readings[3] = s1_readings[4];
+      s1_readings[4] = sensor_reading;
+      median = median5(s1_readings[0],s1_readings[1],s1_readings[2],s1_readings[3],s1_readings[4]);
+    }
+    else if (i == 2) {
+      s2_readings[0] = s2_readings[1]; 
+      s2_readings[1] = s2_readings[2];
+      s2_readings[2] = s2_readings[3];
+      s2_readings[3] = s2_readings[4];
+      s2_readings[4] = sensor_reading;
+      median = median5(s2_readings[0],s2_readings[1],s2_readings[2],s2_readings[3],s2_readings[4]);
+    }
+    else if (i == 3) {
+      s3_readings[0] = s3_readings[1]; // Shifting values forward in index position
+      s3_readings[1] = s3_readings[2];
+      s3_readings[2] = s3_readings[3];
+      s3_readings[3] = s3_readings[4];
+      s3_readings[4] = sensor_reading;
+      median = median5(s3_readings[0],s3_readings[1],s3_readings[2],s3_readings[3],s3_readings[4]);
+    }    
+    
+    if (median==0) {  //Error Reading Color is White
       update_color(ring.Color(127, 127, 127),i, 50);       
     }
-    else if (sensor_reading<200) {  //Red: 0-2m 
+    else if (median<200) {  //Red: 0-2m 
       update_color(ring.Color(255, 0, 0),i, 50);      
     }
-    else if (sensor_reading>=200 && sensor_reading<300) {  //Amber: 2-3m
+    else if (median>=200 && median<300) {  //Amber: 2-3m
       update_color(ring.Color(255, 30, 0),i, 50);
     }
-    else if (sensor_reading>=300 && sensor_reading<400) {  //Yellow: 3-4m
+    else if (median>=300 && median<400) {  //Yellow: 3-4m
       update_color(ring.Color(127, 90, 0),i, 50);
     }
-    else if (sensor_reading>=400 && sensor_reading<500) {  //Yellow-Green: 4-5m
+    else if (median>=400 && median<500) {  //Yellow-Green: 4-5m
       update_color(ring.Color(0, 255, 0),i, 50);
     }
-    else if (sensor_reading>=500 && sensor_reading<766) { //765 is the maximum number you can get
+    else if (median>=500 && median<766) { //765 is the maximum number you can get
       update_color(ring.Color(0, 0, 200),i, 50);  //Green: 5-7m
     }
   }
+  Serial.print("Total Time taken for 1 loop is ");  
+  Serial.print(get_time_taken(loop_timer));Serial.println("us");
   Serial.println("================================");
 }
 
@@ -275,4 +318,41 @@ unsigned long get_time_taken(unsigned long start_time) {
   return current_time;
 }
 
+///////////////////////////////////////////////////////////////////////
+// Function: Get Median Reading from Array                           //
+/////////////////////////////////////////////////////////////////////// 
+unsigned int median3( int a0, int a1, int a2 ) {
+  /* SWAP(1, 2); SWAP(0, 2); SWAP(0, 1); */
+  swap(&a1, &a2); // swaps values  if arg1 > arg2
+  swap(&a0, &a2);
+  swap(&a0, &a1);
+  return a1; // median value
+}
 
+unsigned int median5( int a0, int a1, int a2, int a3, int a4 ) {
+  /* Network for N=5, using Bose-Nelson Algorithm.
+    SWAP(0, 1); SWAP(3, 4); SWAP(2, 4);
+    SWAP(2, 3); SWAP(0, 3); SWAP(0, 2);
+    SWAP(1, 4); SWAP(1, 3); SWAP(1, 2);
+  */
+  swap(&a0, &a1); // 0,1
+  swap(&a3, &a4);
+  swap(&a2, &a4);
+  swap(&a2, &a3); // 2,3
+  swap(&a0, &a3);
+  swap(&a0, &a2);
+  swap(&a1, &a4); // 1,4
+  swap(&a1, &a3);
+  swap(&a1, &a2);
+
+  return a2; // median value
+}
+
+void swap(int *j,  int *k) { //! --- swaps values (int) of j and k if j > k
+  double x = *j;
+  double y = *k;
+  if (*j > *k) {
+    *k = x;
+    *j = y;
+  }
+}
